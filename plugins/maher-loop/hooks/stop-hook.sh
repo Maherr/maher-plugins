@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Cloud Loop Stop Hook
+# Maher Loop Stop Hook
 # Like Ralph's stop hook, but extracts <refine> blocks from Claude's output
 # to evolve the prompt each iteration.
 #
@@ -8,8 +8,8 @@
 #   1. Check state file exists + session isolation
 #   2. Check max iterations
 #   3. Read last assistant output from transcript
-#   4. Check for <promise> → stop if found
-#   5. Check for <refine> → update prompt if found (THE CLOUD INNOVATION)
+#   4. Check for <promise> -> stop if found
+#   5. Check for <refine> -> update prompt if found (THE MAHER LOOP INNOVATION)
 #   6. Block exit, feed current/refined prompt back
 
 set -euo pipefail
@@ -17,8 +17,8 @@ set -euo pipefail
 # Read hook input from stdin
 HOOK_INPUT=$(cat)
 
-# Check if cloud-loop is active
-STATE_FILE=".claude/cloud-loop.local.md"
+# Check if maher-loop is active
+STATE_FILE=".claude/maher-loop.local.md"
 
 if [[ ! -f "$STATE_FILE" ]]; then
   exit 0
@@ -39,19 +39,19 @@ fi
 
 # Validate numeric fields
 if [[ ! "$ITERATION" =~ ^[0-9]+$ ]]; then
-  echo "Cloud loop: State file corrupted (iteration: '$ITERATION')" >&2
+  echo "Maher loop: State file corrupted (iteration: '$ITERATION')" >&2
   rm "$STATE_FILE"
   exit 0
 fi
 if [[ ! "$MAX_ITERATIONS" =~ ^[0-9]+$ ]]; then
-  echo "Cloud loop: State file corrupted (max_iterations: '$MAX_ITERATIONS')" >&2
+  echo "Maher loop: State file corrupted (max_iterations: '$MAX_ITERATIONS')" >&2
   rm "$STATE_FILE"
   exit 0
 fi
 
 # Check max iterations
 if [[ $MAX_ITERATIONS -gt 0 ]] && [[ $ITERATION -ge $MAX_ITERATIONS ]]; then
-  echo "Cloud loop: Max iterations ($MAX_ITERATIONS) reached."
+  echo "Maher loop: Max iterations ($MAX_ITERATIONS) reached."
   rm "$STATE_FILE"
   exit 0
 fi
@@ -60,13 +60,13 @@ fi
 TRANSCRIPT_PATH=$(echo "$HOOK_INPUT" | jq -r '.transcript_path')
 
 if [[ ! -f "$TRANSCRIPT_PATH" ]]; then
-  echo "Cloud loop: Transcript not found" >&2
+  echo "Maher loop: Transcript not found" >&2
   rm "$STATE_FILE"
   exit 0
 fi
 
 if ! grep -q '"role":"assistant"' "$TRANSCRIPT_PATH"; then
-  echo "Cloud loop: No assistant messages in transcript" >&2
+  echo "Maher loop: No assistant messages in transcript" >&2
   rm "$STATE_FILE"
   exit 0
 fi
@@ -74,7 +74,7 @@ fi
 # Extract the most recent assistant text block (capped at last 100 lines)
 LAST_LINES=$(grep '"role":"assistant"' "$TRANSCRIPT_PATH" | tail -n 100)
 if [[ -z "$LAST_LINES" ]]; then
-  echo "Cloud loop: Failed to extract assistant messages" >&2
+  echo "Maher loop: Failed to extract assistant messages" >&2
   rm "$STATE_FILE"
   exit 0
 fi
@@ -87,7 +87,7 @@ JQ_EXIT=$?
 set -e
 
 if [[ $JQ_EXIT -ne 0 ]]; then
-  echo "Cloud loop: Failed to parse transcript JSON" >&2
+  echo "Maher loop: Failed to parse transcript JSON" >&2
   rm "$STATE_FILE"
   exit 0
 fi
@@ -97,14 +97,14 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
   PROMISE_TEXT=$(echo "$LAST_OUTPUT" | perl -0777 -ne 'if(/<promise>(.*?)<\/promise>/s){$t=$1; $t=~s/^\s+|\s+$//g; $t=~s/\s+/ /g; print $t}' 2>/dev/null || echo "")
 
   if [[ -n "$PROMISE_TEXT" ]] && [[ "$PROMISE_TEXT" = "$COMPLETION_PROMISE" ]]; then
-    echo "Cloud loop: Detected <promise>$COMPLETION_PROMISE</promise>"
+    echo "Maher loop: Detected <promise>$COMPLETION_PROMISE</promise>"
     rm "$STATE_FILE"
     exit 0
   fi
 fi
 
 # ============================================================
-# CLOUD LOOP INNOVATION: Extract <refine> block
+# MAHER LOOP INNOVATION: Extract <refine> block
 # ============================================================
 # Claude outputs <refine>improved prompt</refine> at the end of
 # each iteration. We extract it and use it as the next prompt.
@@ -132,9 +132,9 @@ if [[ -n "$REFINED_PROMPT" ]]; then
   PROMPT_WAS_REFINED=true
 
   # Log refinement to history file
-  HISTORY_FILE=".claude/cloud-loop-history.local.md"
+  HISTORY_FILE=".claude/maher-loop-history.local.md"
   if [[ ! -f "$HISTORY_FILE" ]]; then
-    printf '# Cloud Loop Refinement History\n\n---\n' > "$HISTORY_FILE"
+    printf '# Maher Loop Refinement History\n\n---\n' > "$HISTORY_FILE"
   fi
 
   {
@@ -149,7 +149,7 @@ else
 fi
 
 if [[ -z "$PROMPT_TEXT" ]]; then
-  echo "Cloud loop: No prompt text found in state file" >&2
+  echo "Maher loop: No prompt text found in state file" >&2
   rm "$STATE_FILE"
   exit 0
 fi
@@ -163,7 +163,7 @@ if [[ "$PROMPT_WAS_REFINED" = true ]]; then
   BODY_LINE=$(awk '/^---$/{count++; if(count==2){print NR; exit}}' "$STATE_FILE")
 
   if [[ -z "$BODY_LINE" ]]; then
-    echo "Cloud loop: Malformed state file (no closing ---)" >&2
+    echo "Maher loop: Malformed state file (no closing ---)" >&2
     rm "$STATE_FILE"
     exit 0
   fi
@@ -189,9 +189,9 @@ else
 fi
 
 if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
-  SYSTEM_MSG="Cloud iteration $NEXT_ITERATION | $REFINE_STATUS | To stop: output <promise>$COMPLETION_PROMISE</promise> ONLY when TRUE"
+  SYSTEM_MSG="Maher iteration $NEXT_ITERATION | $REFINE_STATUS | To stop: output <promise>$COMPLETION_PROMISE</promise> ONLY when TRUE"
 else
-  SYSTEM_MSG="Cloud iteration $NEXT_ITERATION | $REFINE_STATUS | No completion promise set"
+  SYSTEM_MSG="Maher iteration $NEXT_ITERATION | $REFINE_STATUS | No completion promise set"
 fi
 
 # Block exit and feed prompt back

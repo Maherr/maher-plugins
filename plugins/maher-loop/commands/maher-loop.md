@@ -1,19 +1,19 @@
 ---
-description: "Start Cloud Loop with prompt refinement"
+description: "Start Maher Loop with prompt refinement"
 argument-hint: "PROMPT [--max-iterations N] [--completion-promise TEXT]"
-allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/scripts/setup-cloud-loop.sh:*)"]
+allowed-tools: ["Bash(${CLAUDE_PLUGIN_ROOT}/scripts/setup-maher-loop.sh:*)"]
 hide-from-slash-command-tool: "true"
 ---
 
-# Cloud Loop Command
+# Maher Loop Command
 
-Execute the setup script to initialize the Cloud loop:
+Execute the setup script to initialize the Maher loop:
 
 ```!
-"${CLAUDE_PLUGIN_ROOT}/scripts/setup-cloud-loop.sh" $ARGUMENTS
+"${CLAUDE_PLUGIN_ROOT}/scripts/setup-maher-loop.sh" $ARGUMENTS
 ```
 
-Please work on the task. Unlike Ralph which feeds the SAME prompt every time, Cloud Loop REFINES the prompt each iteration based on what you learn.
+Please work on the task. Unlike Ralph which feeds the SAME prompt every time, Maher Loop REFINES the prompt each iteration based on what you learn.
 
 ## How Prompt Refinement Works
 
@@ -79,6 +79,6 @@ If the current prompt is already optimal and nothing new was learned, skip the `
 
 ## Reference Files
 
-- `.claude/cloud-loop.local.md` - Active state file with current prompt
-- `.claude/cloud-loop-original.local.md` - Original prompt (never changes)
-- `.claude/cloud-loop-history.local.md` - Log of all prompt refinements
+- `.claude/maher-loop.local.md` - Active state file with current prompt
+- `.claude/maher-loop-original.local.md` - Original prompt (never changes)
+- `.claude/maher-loop-history.local.md` - Log of all prompt refinements

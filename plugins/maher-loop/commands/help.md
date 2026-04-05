@@ -1,18 +1,18 @@
 ---
-description: "Explain Cloud Loop plugin and available commands"
+description: "Explain Maher Loop plugin and available commands"
 ---
 
-# Cloud Loop Plugin Help
+# Maher Loop Plugin Help
 
 Please explain the following to the user:
 
-## What is Cloud Loop?
+## What is Maher Loop?
 
-Cloud Loop is an evolution of the Ralph Wiggum technique. Like Ralph, it runs Claude in an iterative loop using a Stop hook. The key difference: **the prompt evolves each iteration**.
+Maher Loop is an evolution of the Ralph Wiggum technique. Like Ralph, it runs Claude in an iterative loop using a Stop hook. The key difference: **the prompt evolves each iteration**.
 
 **Ralph Loop:** Same prompt every time. Claude sees file changes but gets identical instructions.
 
-**Cloud Loop:** Prompt refines itself. Claude outputs a `<refine>` block at the end of each iteration, and the stop hook feeds the improved prompt back for the next round.
+**Maher Loop:** Prompt refines itself. Claude outputs a `<refine>` block at the end of each iteration, and the stop hook feeds the improved prompt back for the next round.
 
 ### Why Prompt Refinement Matters
 
@@ -32,18 +32,18 @@ Iteration 3: Claude receives further-refined prompt, works, outputs <promise> (d
 
 Each `<refine>` block becomes the FULL prompt for the next iteration. The stop hook extracts it automatically.
 
-If Claude skips the `<refine>` block, the same prompt repeats (Ralph behavior). This graceful fallback means Cloud Loop works even if refinement is not needed every iteration.
+If Claude skips the `<refine>` block, the same prompt repeats (Ralph behavior). This graceful fallback means Maher Loop works even if refinement is not needed every iteration.
 
 ## Available Commands
 
-### /cloud-loop <PROMPT> [OPTIONS]
+### /maher-loop <PROMPT> [OPTIONS]
 
-Start a Cloud loop in your current session.
+Start a Maher loop in your current session.
 
 **Usage:**
 ```
-/cloud-loop "Refactor the cache layer" --max-iterations 20
-/cloud-loop "Add tests" --completion-promise "TESTS_COMPLETE" --max-iterations 10
+/maher-loop "Refactor the cache layer" --max-iterations 20
+/maher-loop "Add tests" --completion-promise "TESTS_COMPLETE" --max-iterations 10
 ```
 
 **Options:**
@@ -51,13 +51,13 @@ Start a Cloud loop in your current session.
 - `--completion-promise <text>` - Promise phrase to signal completion
 
 **Files created:**
-- `.claude/cloud-loop.local.md` - Active state with current prompt
-- `.claude/cloud-loop-original.local.md` - Original prompt (preserved)
-- `.claude/cloud-loop-history.local.md` - Refinement log
+- `.claude/maher-loop.local.md` - Active state with current prompt
+- `.claude/maher-loop-original.local.md` - Original prompt (preserved)
+- `.claude/maher-loop-history.local.md` - Refinement log
 
-### /cancel-cloud
+### /cancel-maher
 
-Cancel an active Cloud loop. Preserves history and original prompt files for reference.
+Cancel an active Maher loop. Preserves history and original prompt files for reference.
 
 ## Key Concepts
 
@@ -79,11 +79,11 @@ Same as Ralph - output `<promise>YOUR_PHRASE</promise>` when genuinely done.
 
 ### Refinement History
 
-Every refinement is logged to `.claude/cloud-loop-history.local.md` so you can trace how the prompt evolved. Useful for debugging and understanding the problem-solving trajectory.
+Every refinement is logged to `.claude/maher-loop-history.local.md` so you can trace how the prompt evolved. Useful for debugging and understanding the problem-solving trajectory.
 
-## When to Use Cloud Loop vs Ralph
+## When to Use Maher Loop vs Ralph
 
-**Use Cloud Loop when:**
+**Use Maher Loop when:**
 - Tasks are exploratory or research-heavy (prompt needs to adapt to findings)
 - Multi-step tasks where early steps inform later ones
 - Debugging where the problem definition sharpens as you investigate
@@ -99,10 +99,10 @@ Every refinement is logged to `.claude/cloud-loop-history.local.md` so you can t
 ### Adaptive Bug Investigation
 
 ```
-/cloud-loop "Investigate why the payment endpoint returns 500 errors intermittently. Check logs, trace the request path, identify the root cause, and fix it." --completion-promise "BUG_FIXED" --max-iterations 12
+/maher-loop "Investigate why the payment endpoint returns 500 errors intermittently. Check logs, trace the request path, identify the root cause, and fix it." --completion-promise "BUG_FIXED" --max-iterations 12
 ```
 
-Cloud will:
+Maher Loop will:
 - Iteration 1: Check logs, find error pattern, refine prompt to focus on specific error
 - Iteration 2: Trace the specific code path identified, discover race condition, refine to target fix
 - Iteration 3: Implement fix, refine to focus on testing the fix

@@ -1,5 +1,5 @@
 {
-  "description": "Cloud Loop plugin stop hook for iterative loops with prompt refinement",
+  "description": "Maher Loop plugin stop hook for iterative loops with prompt refinement",
   "hooks": {
     "Stop": [
       {
