@@ -1,0 +1,9 @@
+{
+  "name": "cloud-loop",
+  "version": "1.0.0",
+  "description": "Iterative AI loop with prompt refinement. Like Ralph, but the prompt evolves each iteration based on what Claude learned. Uses <refine> blocks to sharpen focus, remove completed work, and incorporate discoveries.",
+  "author": {
+    "name": "Maher Bouhdid",
+    "email": "maherbouhdid@gmail.com"
+  }
+}
