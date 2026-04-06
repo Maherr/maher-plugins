@@ -46,7 +46,7 @@ Ralph feeds Claude the same prompt every time. Maher Loop adds a `<refine>` mech
 **Quick start:**
 
 ```bash
-/maher-loop Build a REST API with tests --completion-promise DONE --max-iterations 15
+/maher-loop:maher-loop Build a REST API with tests --completion-promise DONE --max-iterations 15
 ```
 
 See [plugins/maher-loop/README.md](plugins/maher-loop/README.md) for full documentation.

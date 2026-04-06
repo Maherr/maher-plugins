@@ -15,7 +15,7 @@ Iterative AI loop with **prompt refinement** for Claude Code. An evolution of th
 ## Quick Start
 
 ```bash
-/maher-loop "Build a REST API for todos with CRUD, validation, and tests" --completion-promise "DONE" --max-iterations 15
+/maher-loop:maher-loop "Build a REST API for todos with CRUD, validation, and tests" --completion-promise "DONE" --max-iterations 15
 ```
 
 Claude will:
@@ -43,9 +43,9 @@ The stop hook in `hooks/stop-hook.sh` extracts this block and updates the state 
 
 ## Commands
 
-- `/maher-loop <prompt> [--max-iterations N] [--completion-promise TEXT]` - Start loop
-- `/cancel-maher` - Cancel active loop
-- `/maher-help` - Show help
+- `/maher-loop:maher-loop <prompt> [--max-iterations N] [--completion-promise TEXT]` - Start loop
+- `/maher-loop:cancel-maher` - Cancel active loop
+- `/maher-loop:help` - Show help
 
 ## Files
 
