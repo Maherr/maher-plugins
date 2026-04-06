@@ -12,6 +12,13 @@ Iterative AI loop with **prompt refinement** for Claude Code. An evolution of th
 | Convergence speed | Linear | Accelerating (prompt sharpens) |
 | Best for | Verification sweeps | Exploratory/multi-step tasks |
 
+## Installation
+
+```bash
+/plugin marketplace add github:Maherr/maher-plugins
+/plugin install maher-loop@maher-plugins
+```
+
 ## Quick Start
 
 ```bash
