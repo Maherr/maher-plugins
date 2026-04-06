@@ -9,7 +9,7 @@
 #   2. Check max iterations
 #   3. Read last assistant output from transcript (current turn only)
 #   4. Check for <promise> -> stop if found
-#   5. Check for <refine> -> update prompt if found (THE MAHER LOOP INNOVATION)
+#   5. Check for <refine> -> update prompt if found
 #   6. Block exit, feed current/refined prompt back
 
 set -euo pipefail
@@ -162,7 +162,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
 fi
 
 # ============================================================
-# MAHER LOOP INNOVATION: Extract <refine> block
+# Extract <refine> block
 # ============================================================
 # Claude outputs <refine>improved prompt</refine> at the end of
 # each iteration. We extract it and use it as the next prompt.

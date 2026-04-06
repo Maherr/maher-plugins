@@ -11,9 +11,6 @@ Iterative AI loop with **prompt refinement** and **mandatory review mode** for C
 | Discovery incorporation | Implicit (file state) | Explicit (in refined prompt) |
 | Convergence speed | Linear | Accelerating (prompt sharpens) |
 | Review before completion | No | Yes (mandatory review iteration) |
-| Default completion promise | None | DONE |
-| Default max iterations | Unlimited | 99 |
-| Best for | Verification sweeps | Exploratory/multi-step tasks |
 
 ## Installation
 
@@ -89,7 +86,7 @@ Same Stop hook mechanism as Ralph:
 ```
 Claude works -> tries to exit -> stop hook fires -> checks for:
   1. <promise> tag -> stop loop
-  2. <refine> tag -> update prompt (MAHER LOOP INNOVATION)
+  2. <refine> tag -> update prompt
   3. Max iterations -> stop loop
   4. Otherwise -> block exit, feed prompt back
 ```
