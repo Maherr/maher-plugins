@@ -1,5 +1,7 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "maher-plugins",
+  "description": "Claude Code plugins by Maher Bouhdid",
   "owner": {
     "name": "Maher Bouhdid",
     "email": "maherbouhdid@gmail.com"
@@ -7,8 +9,14 @@
   "plugins": [
     {
       "name": "maher-loop",
+      "description": "Iterative AI loop with prompt refinement. Like Ralph, but the prompt evolves each iteration.",
+      "author": {
+        "name": "Maher Bouhdid",
+        "email": "maherbouhdid@gmail.com"
+      },
       "source": "./plugins/maher-loop",
-      "description": "Iterative AI loop with prompt refinement. Like Ralph, but the prompt evolves each iteration."
+      "category": "development",
+      "homepage": "https://github.com/Maherr/maher-plugins/tree/main/plugins/maher-loop"
     }
   ]
 }
