@@ -155,7 +155,17 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
   PROMISE_TEXT=$(echo "$LAST_OUTPUT" | perl -0777 -ne 'if(/<promise>(.*?)<\/promise>/s){$t=$1; $t=~s/^\s+|\s+$//g; $t=~s/\s+/ /g; print $t}' 2>/dev/null || echo "")
 
   if [[ -n "$PROMISE_TEXT" ]] && [[ "$PROMISE_TEXT" = "$COMPLETION_PROMISE" ]]; then
-    echo "Maher loop: Detected <promise>$COMPLETION_PROMISE</promise>"
+    # Completion summary with elapsed time
+    STARTED_AT=$(echo "$FRONTMATTER" | grep '^started_at:' | sed 's/started_at: *//' | sed 's/"//g')
+    START_EPOCH=$(date -d "$STARTED_AT" +%s 2>/dev/null || echo "")
+    if [[ -n "$START_EPOCH" ]]; then
+      ELAPSED=$(( $(date +%s) - START_EPOCH ))
+      MINS=$((ELAPSED / 60))
+      SECS=$((ELAPSED % 60))
+      echo "Maher loop: Complete — $ITERATION iterations, ${MINS}m ${SECS}s"
+    else
+      echo "Maher loop: Complete — $ITERATION iterations"
+    fi
     rm "$STATE_FILE"
     exit 0
   fi

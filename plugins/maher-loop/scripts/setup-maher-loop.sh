@@ -42,7 +42,7 @@ EXAMPLES:
 
 STOPPING:
   Only by reaching --max-iterations or detecting --completion-promise.
-  No manual stop - Maher Loop runs infinitely by default!
+  Default: 99 max iterations, completion promise 'DONE'.
 
 MONITORING:
   # View current iteration:
