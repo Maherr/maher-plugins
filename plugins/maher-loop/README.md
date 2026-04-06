@@ -1,6 +1,6 @@
 # Maher Loop Plugin
 
-Iterative AI loop with **prompt refinement** for Claude Code. An evolution of the Ralph Wiggum technique where the prompt evolves each iteration.
+Iterative AI loop with **prompt refinement** and **mandatory review mode** for Claude Code. An evolution of the Ralph Wiggum technique where the prompt evolves each iteration.
 
 ## Ralph vs Maher
 
@@ -10,6 +10,9 @@ Iterative AI loop with **prompt refinement** for Claude Code. An evolution of th
 | Completed work tracking | Via file changes only | Removed from prompt |
 | Discovery incorporation | Implicit (file state) | Explicit (in refined prompt) |
 | Convergence speed | Linear | Accelerating (prompt sharpens) |
+| Review before completion | No | Yes (mandatory review iteration) |
+| Default completion promise | None | DONE |
+| Default max iterations | Unlimited | 99 |
 | Best for | Verification sweeps | Exploratory/multi-step tasks |
 
 ## Installation
@@ -22,7 +25,7 @@ Iterative AI loop with **prompt refinement** for Claude Code. An evolution of th
 ## Quick Start
 
 ```bash
-/maher-loop:maher-loop "Build a REST API for todos with CRUD, validation, and tests" --completion-promise "DONE" --max-iterations 15
+/maher-loop:go Build a REST API for todos with CRUD, validation, and tests
 ```
 
 Claude will:
@@ -30,7 +33,11 @@ Claude will:
 2. Output a `<refine>` block with an improved prompt
 3. Stop hook extracts the refinement
 4. Next iteration receives the sharpened prompt
-5. Repeat until completion promise or max iterations
+5. When done, enters mandatory review mode
+6. After clean review, outputs completion promise
+7. Loop exits
+
+Default settings: `--completion-promise DONE --max-iterations 99`
 
 ## How Refinement Works
 
@@ -48,9 +55,20 @@ Improved prompt with:
 
 The stop hook in `hooks/stop-hook.sh` extracts this block and updates the state file. If no `<refine>` block is output, the same prompt repeats (Ralph behavior).
 
+## Review Mode
+
+When Claude believes the task is complete, it cannot immediately exit. Instead:
+
+1. Claude outputs a `<refine>` block triggering review mode
+2. In the review iteration, Claude re-reads files, re-checks requirements, re-verifies outputs
+3. Only after a clean review pass (nothing changed) can Claude output `<promise>DONE</promise>`
+4. If issues are found during review, Claude fixes them and refines again
+
+This prevents premature completion and ensures work quality.
+
 ## Commands
 
-- `/maher-loop:maher-loop <prompt> [--max-iterations N] [--completion-promise TEXT]` - Start loop
+- `/maher-loop:go <prompt> [--max-iterations N] [--completion-promise TEXT]` - Start loop
 - `/maher-loop:cancel-maher` - Cancel active loop
 - `/maher-loop:help` - Show help
 
@@ -78,7 +96,9 @@ Claude works -> tries to exit -> stop hook fires -> checks for:
 
 ## Safety
 
-- Always use `--max-iterations` as a safety net
-- `--completion-promise` requires exact match in `<promise>` tags
+- Default `--max-iterations 99` as a safety net
+- Default `--completion-promise DONE` requires exact match in `<promise>` tags
 - Session-isolated: only the originating session triggers the hook
 - History file preserves the full refinement trajectory for debugging
+- Existing loop check prevents accidental overwrites
+- Race condition retry limit (5 retries) prevents infinite retry loops

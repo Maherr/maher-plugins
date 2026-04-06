@@ -7,8 +7,8 @@ set -euo pipefail
 
 # Parse arguments
 PROMPT_PARTS=()
-MAX_ITERATIONS=0
-COMPLETION_PROMISE="null"
+MAX_ITERATIONS=99
+COMPLETION_PROMISE="DONE"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -17,14 +17,14 @@ while [[ $# -gt 0 ]]; do
 Maher Loop - Iterative loop with prompt refinement
 
 USAGE:
-  /maher-loop [PROMPT...] [OPTIONS]
+  /maher-loop:go [PROMPT...] [OPTIONS]
 
 ARGUMENTS:
   PROMPT...    Initial prompt to start the loop (can be multiple words without quotes)
 
 OPTIONS:
-  --max-iterations <n>           Maximum iterations before auto-stop (default: unlimited)
-  --completion-promise '<text>'  Promise phrase (USE QUOTES for multi-word)
+  --max-iterations <n>           Maximum iterations before auto-stop (default: 99)
+  --completion-promise '<text>'  Promise phrase (USE QUOTES for multi-word, default: DONE)
   -h, --help                     Show this help message
 
 DESCRIPTION:
@@ -36,9 +36,9 @@ DESCRIPTION:
   To refine the prompt, output: <refine>IMPROVED_PROMPT</refine>
 
 EXAMPLES:
-  /maher-loop Build a todo API --completion-promise 'DONE' --max-iterations 20
-  /maher-loop --max-iterations 10 Investigate and fix the auth bug
-  /maher-loop Research best practices for caching --completion-promise 'RESEARCH_COMPLETE'
+  /maher-loop:go Build a todo API --completion-promise 'DONE' --max-iterations 20
+  /maher-loop:go --max-iterations 10 Investigate and fix the auth bug
+  /maher-loop:go Research best practices for caching --completion-promise 'RESEARCH_COMPLETE'
 
 STOPPING:
   Only by reaching --max-iterations or detecting --completion-promise.
@@ -90,63 +90,93 @@ if [[ -z "$PROMPT" ]]; then
   echo "Error: No prompt provided" >&2
   echo "" >&2
   echo "  Examples:" >&2
-  echo "    /maher-loop Build a REST API for todos" >&2
-  echo "    /maher-loop Fix the auth bug --max-iterations 20" >&2
+  echo "    /maher-loop:go Build a REST API for todos" >&2
+  echo "    /maher-loop:go Fix the auth bug --max-iterations 20" >&2
   echo "" >&2
-  echo "  For all options: /maher-loop --help" >&2
+  echo "  For all options: /maher-loop:go --help" >&2
+  exit 1
+fi
+
+# Check for existing active loop
+if [[ -f .claude/maher-loop.local.md ]]; then
+  EXISTING_ITER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' .claude/maher-loop.local.md | grep '^iteration:' | sed 's/iteration: *//')
+  echo "Error: Maher loop already active (iteration ${EXISTING_ITER:-?})" >&2
+  echo "  Run /maher-loop:cancel-maher first, or delete .claude/maher-loop.local.md" >&2
   exit 1
 fi
 
 # Create state directory
 mkdir -p .claude
 
-# Quote completion promise for YAML
+# Escape completion promise for safe YAML embedding
+# Replace internal double quotes with escaped versions
 if [[ -n "$COMPLETION_PROMISE" ]] && [[ "$COMPLETION_PROMISE" != "null" ]]; then
-  COMPLETION_PROMISE_YAML="\"$COMPLETION_PROMISE\""
+  ESCAPED_PROMISE="${COMPLETION_PROMISE//\"/\\\"}"
+  COMPLETION_PROMISE_YAML="\"$ESCAPED_PROMISE\""
 else
   COMPLETION_PROMISE_YAML="null"
 fi
 
-# Create state file
-cat > .claude/maher-loop.local.md <<EOF
+# Create state file using quoted heredoc to prevent expansion of prompt content.
+# Frontmatter fields are written separately via sed to inject variables safely.
+cat > .claude/maher-loop.local.md <<'STATEEOF'
 ---
 active: true
 iteration: 1
-session_id: ${CLAUDE_CODE_SESSION_ID:-}
-max_iterations: $MAX_ITERATIONS
-completion_promise: $COMPLETION_PROMISE_YAML
-started_at: "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+session_id: __SESSION_ID__
+max_iterations: __MAX_ITER__
+completion_promise: __PROMISE__
+started_at: "__STARTED__"
 ---
 
-$PROMPT
-EOF
+STATEEOF
+# Append prompt as literal text (no expansion)
+printf '%s\n' "$PROMPT" >> .claude/maher-loop.local.md
+# Replace placeholders with actual values
+STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+sed -i "s|__SESSION_ID__|${CLAUDE_CODE_SESSION_ID:-}|" .claude/maher-loop.local.md
+sed -i "s|__MAX_ITER__|$MAX_ITERATIONS|" .claude/maher-loop.local.md
+sed -i "s|__PROMISE__|$COMPLETION_PROMISE_YAML|" .claude/maher-loop.local.md
+sed -i "s|__STARTED__|$STARTED_AT|" .claude/maher-loop.local.md
 
 # Save original prompt for reference (never modified)
-cat > .claude/maher-loop-original.local.md <<EOF
-# Maher Loop - Original Prompt
-
-**Started:** $(date -u +%Y-%m-%dT%H:%M:%SZ)
-
-$PROMPT
-EOF
+{
+  echo "# Maher Loop - Original Prompt"
+  echo ""
+  printf '**Started:** %s\n' "$STARTED_AT"
+  echo ""
+  printf '%s\n' "$PROMPT"
+} > .claude/maher-loop-original.local.md
 
 # Initialize history file
-cat > .claude/maher-loop-history.local.md <<EOF
-# Maher Loop Refinement History
-
-**Original prompt:**
-$PROMPT
-
----
-EOF
+{
+  echo "# Maher Loop Refinement History"
+  echo ""
+  echo "**Original prompt:**"
+  printf '%s\n' "$PROMPT"
+  echo ""
+  echo "---"
+} > .claude/maher-loop-history.local.md
 
 # Output setup message
-cat <<EOF
+cat <<'MSGEOF'
 Maher loop activated!
+MSGEOF
 
-Iteration: 1
-Max iterations: $(if [[ $MAX_ITERATIONS -gt 0 ]]; then echo $MAX_ITERATIONS; else echo "unlimited"; fi)
-Completion promise: $(if [[ "$COMPLETION_PROMISE" != "null" ]]; then echo "${COMPLETION_PROMISE//\"/} (ONLY output when TRUE)"; else echo "none (runs forever)"; fi)
+echo ""
+echo "Iteration: 1"
+if [[ $MAX_ITERATIONS -gt 0 ]]; then
+  echo "Max iterations: $MAX_ITERATIONS"
+else
+  echo "Max iterations: unlimited"
+fi
+if [[ "$COMPLETION_PROMISE" != "null" ]]; then
+  echo "Completion promise: $COMPLETION_PROMISE (ONLY output when TRUE)"
+else
+  echo "Completion promise: none (runs forever)"
+fi
+
+cat <<'MSGEOF'
 
 Unlike Ralph which repeats the SAME prompt, Maher Loop REFINES the prompt
 each iteration. At the end of each iteration, output a <refine> block to
@@ -157,9 +187,9 @@ Files created:
   .claude/maher-loop-original.local.md (original prompt, read-only)
   .claude/maher-loop-history.local.md  (refinement log)
 
-EOF
+MSGEOF
 
-echo "$PROMPT"
+printf '%s\n' "$PROMPT"
 
 # Display completion and refinement instructions
 if [[ "$COMPLETION_PROMISE" != "null" ]]; then
