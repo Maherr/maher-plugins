@@ -15,7 +15,7 @@ Iterative AI loop with **prompt refinement** for Claude Code. An evolution of th
 ## Installation
 
 ```bash
-/plugin marketplace add github:Maherr/maher-plugins
+/plugin marketplace add Maherr/maher-plugins
 /plugin install maher-loop@maher-plugins
 ```
 
