@@ -14,6 +14,36 @@ Iterative AI loop with **prompt refinement**, **built-in sweep protocol**, and *
 | Quality sweeps | No (must launch separately) | Built-in (sweep + verification) |
 | Review before completion | No | Yes (two consecutive clean passes required) |
 
+## How It Works
+
+```mermaid
+flowchart TD
+    A["/maher-loop:go PROMPT"] --> B["Iteration 1: Work on task"]
+    B --> C{"More work\nneeded?"}
+    C -->|Yes| D["Output &lt;refine&gt; block\n+ Files touched"]
+    D --> E["Stop hook extracts\nrefined prompt"]
+    E --> F["Iteration N: Work on\nrefined prompt"]
+    F --> C
+    C -->|No| G["Output &lt;refine&gt;\nSWEEP MODE"]
+    G --> H["Sweep: Re-read ALL\nmodified files end-to-end"]
+    H --> I{"Issues\nfound?"}
+    I -->|Yes| J["Fix issues"]
+    J --> G
+    I -->|No| K["Output &lt;refine&gt;\nCLEAN SWEEP"]
+    K --> L["Verification: Re-read\nkey files one more time"]
+    L --> M{"Still\nclean?"}
+    M -->|No| G
+    M -->|Yes| N["Output &lt;promise&gt;DONE&lt;/promise&gt;"]
+    N --> O["Loop exits ✓"]
+
+    style A fill:#4a9eff,color:#fff
+    style O fill:#22c55e,color:#fff
+    style G fill:#f59e0b,color:#fff
+    style K fill:#f59e0b,color:#fff
+    style N fill:#22c55e,color:#fff
+    style J fill:#ef4444,color:#fff
+```
+
 ## Installation
 
 ```bash
