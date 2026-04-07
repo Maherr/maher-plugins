@@ -86,6 +86,10 @@ If any issues: fix and return to SWEEP MODE.
 5. Include enough context for the next iteration to continue without history
 6. Always include `Files touched:` so sweep iterations know what to cross-check
 
+### Task tracking for complex work:
+
+For tasks with 3 or more distinct steps, use TaskCreate at the start of iteration 1 to decompose the work into trackable items. Update task statuses as you progress (in_progress when starting a step, completed when done). During sweep mode, use the task list as your verification checklist. For simple or short tasks, skip this — the overhead isn't worth it.
+
 ### Rate-limited APIs:
 
 When using rate-limited external APIs (Consensus, web search, etc.), call them **sequentially, not in parallel**. Parallel calls frequently hit rate limits and waste iterations on retries.
