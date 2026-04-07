@@ -1,6 +1,6 @@
 {
   "name": "maher-loop",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Iterative AI loop with prompt refinement, built-in sweep protocol, and two-pass verification. Like Ralph, but the prompt evolves each iteration. Includes file tracking, convergence sweeps, and rate-limit-aware API guidance.",
   "author": {
     "name": "Maher Bouhdid",

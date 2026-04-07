@@ -92,7 +92,7 @@ For tasks with 3 or more distinct steps, use TaskCreate at the start of iteratio
 
 ### Use agents aggressively for complex work:
 
-For research, multi-angle investigations, debugging, or whenever sequential thinking has stalled, launch multiple agents in parallel using the Agent tool. Spawn agents for independent sub-questions (different search queries, different hypotheses, different code areas) and synthesize their results in the main context. A stuck loop burning iterations of sequential guessing costs far more than parallel agents that resolve the problem in one iteration. Don't delegate understanding — agents gather, you synthesize.
+For research, multi-angle investigations, debugging, or whenever sequential thinking has stalled, launch multiple agents in parallel using the Agent tool. Spawn agents for independent sub-questions (different search queries, different hypotheses, different code areas) and synthesize their results in the main context. A stuck loop burning iterations of sequential guessing costs far more than parallel agents that resolve the problem in one iteration. Don't delegate understanding — agents gather, you synthesize. **Important: always run agents in the foreground (the default) during a loop — never use `run_in_background: true`, because the stop hook may fire before background agents return, losing their results.**
 
 ### Rate-limited APIs:
 
