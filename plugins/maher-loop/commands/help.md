@@ -26,17 +26,35 @@ Maher Loop is an evolution of the Ralph Wiggum technique. Like Ralph, it runs Cl
 
 ```
 Iteration 1: Claude receives original prompt, works, outputs <refine> block
-Iteration 2: Claude receives refined prompt, works, outputs <refine> block (review mode)
-Iteration 3: Claude verifies everything, outputs <promise>DONE</promise> (done!)
+Iteration 2: Claude receives refined prompt, works, outputs <refine> block
+...
+Iteration N: Claude believes work is done, outputs <refine> with SWEEP MODE
+Iteration N+1: Claude re-reads ALL modified files end-to-end, checks consistency
+  - If issues found: fixes them, outputs <refine> with SWEEP MODE again
+  - If clean: outputs <refine> with CLEAN SWEEP
+Iteration N+2: Verification pass — confirms nothing was broken by sweep fixes
+  - If still clean: outputs <promise>DONE</promise> (done!)
+  - If issues: back to SWEEP MODE
 ```
 
 Each `<refine>` block becomes the FULL prompt for the next iteration. The stop hook extracts it automatically.
 
 If Claude skips the `<refine>` block, the same prompt repeats (Ralph behavior). This graceful fallback means Maher Loop works even if refinement is not needed every iteration.
 
-### Mandatory Review Mode
+### Built-in Sweep Protocol
 
-When Claude thinks it is done, it cannot immediately output `<promise>`. It must first refine into a review iteration where it re-reads files, re-checks requirements, and verifies outputs. Only after a clean review pass (nothing changed) can it output the completion promise.
+When Claude thinks it's done, it enters a multi-phase end sequence:
+
+1. **Sweep Mode** — Re-reads every modified file end-to-end (not just greps). Cross-checks numbers, references, and data between files. Looks for stale data, duplicates, arithmetic errors, and broken cross-references.
+2. **Clean Sweep** — If sweep found zero issues, enters verification pass.
+3. **Verification Pass** — One final re-read of key files to confirm sweep fixes didn't break anything.
+4. **Completion** — Only after two consecutive clean passes (sweep + verification) can Claude output the promise.
+
+This eliminates the need to separately launch a Ralph Loop for quality sweeps — the sweep behavior is built into Maher Loop's end-of-life protocol.
+
+### File Tracking
+
+Every `<refine>` block includes a `Files touched:` line listing all files modified during that iteration. This gives sweep iterations an explicit list of what to cross-check, instead of guessing.
 
 ## Available Commands
 
@@ -71,7 +89,8 @@ At the end of each iteration, Claude outputs:
 ```
 <refine>
 Improved prompt with completed items removed, new discoveries added,
-and remaining tasks sharpened based on this iteration's work.
+remaining tasks sharpened, and files touched listed.
+Files touched: [file1.md, file2.md]
 </refine>
 ```
 
@@ -79,7 +98,7 @@ The stop hook extracts this and uses it as the next prompt.
 
 ### Completion Promises
 
-Output `<promise>YOUR_PHRASE</promise>` when genuinely done (default phrase: DONE).
+Output `<promise>YOUR_PHRASE</promise>` when genuinely done (default phrase: DONE). Requires two consecutive clean passes (sweep + verification) before the promise is allowed.
 
 ### Refinement History
 
@@ -92,6 +111,7 @@ Every refinement is logged to `.claude/maher-loop-history.local.md` so you can t
 - Multi-step tasks where early steps inform later ones
 - Debugging where the problem definition sharpens as you investigate
 - Any task longer than 3-4 iterations (prompt staleness becomes costly)
+- Tasks that need quality sweeps at the end (built-in sweep protocol)
 
 **Use Ralph when:**
 - Simple verification/sweep loops (same check repeated)
@@ -110,5 +130,6 @@ Maher Loop will:
 - Iteration 1: Check logs, find error pattern, refine prompt to focus on specific error
 - Iteration 2: Trace the specific code path identified, discover race condition, refine to target fix
 - Iteration 3: Implement fix, refine to focus on testing the fix
-- Iteration 4: Verify fix works, enter review mode
-- Iteration 5: Clean review pass, output promise
+- Iteration 4: Enter SWEEP MODE — re-read all modified files, cross-check changes
+- Iteration 5: CLEAN SWEEP — zero issues, enter verification pass
+- Iteration 6: Verification clean, output promise

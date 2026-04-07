@@ -1,6 +1,6 @@
 # Maher Loop Plugin
 
-Iterative AI loop with **prompt refinement** and **mandatory review mode** for Claude Code. An evolution of the Ralph Wiggum technique where the prompt evolves each iteration.
+Iterative AI loop with **prompt refinement**, **built-in sweep protocol**, and **two-pass verification** for Claude Code. An evolution of the Ralph Wiggum technique where the prompt evolves each iteration and quality sweeps are built in.
 
 ## Ralph vs Maher
 
@@ -10,7 +10,9 @@ Iterative AI loop with **prompt refinement** and **mandatory review mode** for C
 | Completed work tracking | Via file changes only | Removed from prompt |
 | Discovery incorporation | Implicit (file state) | Explicit (in refined prompt) |
 | Convergence speed | Linear | Accelerating (prompt sharpens) |
-| Review before completion | No | Yes (mandatory review iteration) |
+| File tracking | No | Yes (`Files touched:` in every refine) |
+| Quality sweeps | No (must launch separately) | Built-in (sweep + verification) |
+| Review before completion | No | Yes (two consecutive clean passes required) |
 
 ## Installation
 
@@ -27,12 +29,13 @@ Iterative AI loop with **prompt refinement** and **mandatory review mode** for C
 
 Claude will:
 1. Work on the task
-2. Output a `<refine>` block with an improved prompt
+2. Output a `<refine>` block with an improved prompt (including `Files touched:`)
 3. Stop hook extracts the refinement
 4. Next iteration receives the sharpened prompt
-5. When done, enters mandatory review mode
-6. After clean review, outputs completion promise
-7. Loop exits
+5. When done, enters **SWEEP MODE** — re-reads all modified files end-to-end
+6. After clean sweep, enters **verification pass** (second clean check)
+7. After two consecutive clean passes, outputs completion promise
+8. Loop exits
 
 Default settings: `--completion-promise DONE --max-iterations 99`
 
@@ -47,21 +50,32 @@ Improved prompt with:
 - New discoveries added
 - Remaining tasks sharpened
 - Strategy adjusted based on this iteration
+Files touched: [list of files modified this iteration]
 </refine>
 ```
 
 The stop hook in `hooks/stop-hook.sh` extracts this block and updates the state file. If no `<refine>` block is output, the same prompt repeats (Ralph behavior).
 
-## Review Mode
+## Built-in Sweep Protocol
 
-When Claude believes the task is complete, it cannot immediately exit. Instead:
+When Claude believes the task is complete, it enters a multi-phase end sequence instead of immediately exiting:
 
-1. Claude outputs a `<refine>` block triggering review mode
-2. In the review iteration, Claude re-reads files, re-checks requirements, re-verifies outputs
-3. Only after a clean review pass (nothing changed) can Claude output `<promise>DONE</promise>`
-4. If issues are found during review, Claude fixes them and refines again
+### Phase 1: Sweep Mode
+Claude re-reads **every modified file end-to-end** (not just targeted greps). Cross-checks numbers, references, and data between files. Looks for stale data, duplicate sections, arithmetic errors, and broken cross-references. The `Files touched:` list from refine blocks tells the sweep exactly what to check.
 
-This prevents premature completion and ensures work quality.
+### Phase 2: Clean Sweep
+If the sweep found zero issues, Claude outputs a `CLEAN SWEEP` refine to trigger the verification pass.
+
+### Phase 3: Verification Pass
+One final re-read of key output files to confirm that any fixes made during sweep didn't introduce new issues. Only after this second consecutive clean pass can Claude output `<promise>DONE</promise>`.
+
+If issues are found at any phase, Claude fixes them and returns to Sweep Mode. This creates a convergence loop that runs until the output is genuinely clean.
+
+**Why this matters:** In practice, review iterations that only check what you think to look for miss issues that full file re-reads catch (stale data, duplicate sections, inconsistent numbers between files). The sweep protocol was added after observing that a separate Ralph Loop sweep consistently found 5-10 additional issues after Maher Loop's original review mode declared "done."
+
+## Rate-Limited APIs
+
+When using rate-limited external APIs (Consensus, web search, etc.), the loop instructions advise calling them **sequentially, not in parallel**. Parallel calls frequently hit rate limits and waste iterations on retries.
 
 ## Commands
 
