@@ -90,6 +90,10 @@ If any issues: fix and return to SWEEP MODE.
 
 For tasks with 3 or more distinct steps, use TaskCreate at the start of iteration 1 to decompose the work into trackable items. Update task statuses as you progress (in_progress when starting a step, completed when done). During sweep mode, use the task list as your verification checklist. For simple or short tasks, skip this — the overhead isn't worth it.
 
+### Use agents aggressively for complex work:
+
+For research, multi-angle investigations, debugging, or whenever sequential thinking has stalled, launch multiple agents in parallel using the Agent tool. Spawn agents for independent sub-questions (different search queries, different hypotheses, different code areas) and synthesize their results in the main context. A stuck loop burning iterations of sequential guessing costs far more than parallel agents that resolve the problem in one iteration. Don't delegate understanding — agents gather, you synthesize.
+
 ### Rate-limited APIs:
 
 When using rate-limited external APIs (Consensus, web search, etc.), call them **sequentially, not in parallel**. Parallel calls frequently hit rate limits and waste iterations on retries.
