@@ -5,6 +5,8 @@
 #
 # Input: reads from stdin (heredoc from go.md) to avoid shell metacharacter
 # issues with parentheses, quotes, etc. Falls back to $@ for backward compat.
+#
+# Supports multiple concurrent loops via unique loop IDs in filenames.
 
 set -euo pipefail
 
@@ -24,8 +26,6 @@ fi
 RAW_INPUT=$(printf '%s' "$RAW_INPUT" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
 # Strip surrounding double quotes if the user wrapped the whole prompt
-# (e.g., /maher-loop:go "my prompt here" --max-iterations 10)
-# Only strip if the string starts AND ends with a quote
 if [[ "$RAW_INPUT" =~ ^\"(.*)\"$ ]]; then
   RAW_INPUT="${BASH_REMATCH[1]}"
 fi
@@ -53,9 +53,8 @@ DESCRIPTION:
   iteration, Claude outputs a <refine> block with an improved prompt that
   incorporates what was learned, removes completed work, and sharpens focus.
 
-  Built-in sweep protocol ensures quality: when Claude thinks it's done, it
-  enters SWEEP MODE (full file re-reads and cross-checks), then a verification
-  pass, before the loop can exit.
+  Supports multiple concurrent loops — each loop gets a unique ID and runs
+  independently in its own session.
 
   To signal completion, output: <promise>YOUR_PHRASE</promise>
   To refine the prompt, output: <refine>IMPROVED_PROMPT</refine>
@@ -63,40 +62,32 @@ DESCRIPTION:
 EXAMPLES:
   /maher-loop:go Build a todo API --completion-promise DONE --max-iterations 20
   /maher-loop:go --max-iterations 10 Investigate and fix the auth bug
-  /maher-loop:go Research best practices for caching --completion-promise RESEARCH_COMPLETE
 
 STOPPING:
   Only by reaching --max-iterations or detecting --completion-promise.
   Default: 99 max iterations, completion promise 'DONE'.
 
 MONITORING:
-  # View current iteration:
-  grep '^iteration:' .claude/maher-loop.local.md
+  # List active loops:
+  ls .claude/maher-loop-*.local.md 2>/dev/null | grep -v history | grep -v original
 
-  # View current (refined) prompt:
-  awk '/^---$/{i++; next} i>=2' .claude/maher-loop.local.md
-
-  # View refinement history:
-  cat .claude/maher-loop-history.local.md
+  # View current iteration for a loop:
+  grep '^iteration:' .claude/maher-loop-LOOPID.local.md
 HELP_EOF
   exit 0
 fi
 
 # ============================================================
-# Parse options from the raw string (regex-based, not $@ iteration)
-# This is what makes heredoc input work — we parse a single string
-# instead of relying on shell word splitting.
+# Parse options from the raw string
 # ============================================================
 MAX_ITERATIONS=99
 COMPLETION_PROMISE="DONE"
 
-# Extract --max-iterations N
 if [[ "$RAW_INPUT" =~ --max-iterations[[:space:]]+([0-9]+) ]]; then
   MAX_ITERATIONS="${BASH_REMATCH[1]}"
   RAW_INPUT="${RAW_INPUT/--max-iterations ${BASH_REMATCH[1]}/}"
 fi
 
-# Extract --completion-promise (handle single-quoted, double-quoted, and bare values)
 if [[ "$RAW_INPUT" =~ --completion-promise[[:space:]]+\'([^\']*)\' ]]; then
   COMPLETION_PROMISE="${BASH_REMATCH[1]}"
   RAW_INPUT="${RAW_INPUT/--completion-promise \'${BASH_REMATCH[1]}\'/}"
@@ -108,7 +99,6 @@ elif [[ "$RAW_INPUT" =~ --completion-promise[[:space:]]+([^[:space:]]+) ]]; then
   RAW_INPUT="${RAW_INPUT/--completion-promise ${BASH_REMATCH[1]}/}"
 fi
 
-# Remaining text is the prompt — trim whitespace
 PROMPT=$(printf '%s' "$RAW_INPUT" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
 if [[ -z "$PROMPT" ]]; then
@@ -117,25 +107,20 @@ if [[ -z "$PROMPT" ]]; then
   echo "  Examples:" >&2
   echo "    /maher-loop:go Build a REST API for todos" >&2
   echo "    /maher-loop:go Fix the auth bug --max-iterations 20" >&2
-  echo "" >&2
-  echo "  For all options: /maher-loop:go --help" >&2
   exit 1
 fi
 
 # ============================================================
-# Check for existing active loop
-# ============================================================
-if [[ -f .claude/maher-loop.local.md ]]; then
-  EXISTING_ITER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' .claude/maher-loop.local.md | grep '^iteration:' | sed 's/iteration: *//')
-  echo "Error: Maher loop already active (iteration ${EXISTING_ITER:-?})" >&2
-  echo "  Run /maher-loop:cancel-maher first, or delete .claude/maher-loop.local.md" >&2
-  exit 1
-fi
-
-# ============================================================
-# Create state files
+# Generate unique loop ID and create state files
 # ============================================================
 mkdir -p .claude
+
+# Generate 8-char random hex ID
+LOOP_ID=$(head -c 4 /dev/urandom | od -A n -t x1 | tr -d ' \n')
+
+STATE_FILE=".claude/maher-loop-${LOOP_ID}.local.md"
+HISTORY_FILE=".claude/maher-loop-${LOOP_ID}-history.local.md"
+ORIGINAL_FILE=".claude/maher-loop-${LOOP_ID}-original.local.md"
 
 # Escape completion promise for safe YAML embedding
 if [[ -n "$COMPLETION_PROMISE" ]] && [[ "$COMPLETION_PROMISE" != "null" ]]; then
@@ -145,55 +130,61 @@ else
   COMPLETION_PROMISE_YAML="null"
 fi
 
-# Create state file using quoted heredoc to prevent expansion of prompt content.
-# Frontmatter fields are written separately via sed to inject variables safely.
-cat > .claude/maher-loop.local.md <<'STATEEOF'
+STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+# Create state file
+cat > "$STATE_FILE" <<STATEEOF
 ---
 active: true
 iteration: 1
-session_id: __SESSION_ID__
-max_iterations: __MAX_ITER__
-completion_promise: __PROMISE__
-started_at: "__STARTED__"
+loop_id: ${LOOP_ID}
+session_id:
+max_iterations: ${MAX_ITERATIONS}
+completion_promise: ${COMPLETION_PROMISE_YAML}
+started_at: "${STARTED_AT}"
 ---
 
 STATEEOF
-# Append prompt as literal text (no expansion)
-printf '%s\n' "$PROMPT" >> .claude/maher-loop.local.md
-# Replace placeholders with actual values
-STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-sed -i "s|__SESSION_ID__|${CLAUDE_CODE_SESSION_ID:-}|" .claude/maher-loop.local.md
-sed -i "s|__MAX_ITER__|$MAX_ITERATIONS|" .claude/maher-loop.local.md
-sed -i "s|__PROMISE__|$COMPLETION_PROMISE_YAML|" .claude/maher-loop.local.md
-sed -i "s|__STARTED__|$STARTED_AT|" .claude/maher-loop.local.md
+printf '%s\n' "$PROMPT" >> "$STATE_FILE"
 
-# Save original prompt for reference (never modified)
+# Save original prompt
 {
   echo "# Maher Loop - Original Prompt"
   echo ""
+  printf '**Loop ID:** %s\n' "$LOOP_ID"
   printf '**Started:** %s\n' "$STARTED_AT"
   echo ""
   printf '%s\n' "$PROMPT"
-} > .claude/maher-loop-original.local.md
+} > "$ORIGINAL_FILE"
 
 # Initialize history file
 {
   echo "# Maher Loop Refinement History"
   echo ""
+  printf '**Loop ID:** %s\n' "$LOOP_ID"
+  echo ""
   echo "**Original prompt:**"
   printf '%s\n' "$PROMPT"
   echo ""
   echo "---"
-} > .claude/maher-loop-history.local.md
+} > "$HISTORY_FILE"
+
+# ============================================================
+# Count active loops
+# ============================================================
+ACTIVE_COUNT=0
+for f in .claude/maher-loop-*.local.md; do
+  [[ "$f" == *-history.local.md ]] && continue
+  [[ "$f" == *-original.local.md ]] && continue
+  [[ -f "$f" ]] && ACTIVE_COUNT=$((ACTIVE_COUNT + 1))
+done
 
 # ============================================================
 # Output setup message
 # ============================================================
-cat <<'MSGEOF'
-Maher loop activated!
-MSGEOF
-
+echo "Maher loop activated!"
 echo ""
+echo "Loop ID: $LOOP_ID"
 echo "Iteration: 1"
 if [[ $MAX_ITERATIONS -gt 0 ]]; then
   echo "Max iterations: $MAX_ITERATIONS"
@@ -205,6 +196,9 @@ if [[ "$COMPLETION_PROMISE" != "null" ]]; then
 else
   echo "Completion promise: none (runs forever)"
 fi
+if [[ $ACTIVE_COUNT -gt 1 ]]; then
+  echo "Active loops: $ACTIVE_COUNT (concurrent)"
+fi
 
 cat <<'MSGEOF'
 
@@ -212,12 +206,13 @@ Unlike Ralph which repeats the SAME prompt, Maher Loop REFINES the prompt
 each iteration. At the end of each iteration, output a <refine> block to
 sharpen the prompt for the next round.
 
-Files created:
-  .claude/maher-loop.local.md          (active state + current prompt)
-  .claude/maher-loop-original.local.md (original prompt, read-only)
-  .claude/maher-loop-history.local.md  (refinement log)
-
 MSGEOF
+
+echo "Files created:"
+echo "  $STATE_FILE"
+echo "  $ORIGINAL_FILE"
+echo "  $HISTORY_FILE"
+echo ""
 
 printf '%s\n' "$PROMPT"
 

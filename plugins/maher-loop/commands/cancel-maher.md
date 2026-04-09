@@ -1,20 +1,20 @@
 ---
 description: "Cancel active Maher Loop"
-allowed-tools: ["Bash(test -f .claude/maher-loop.local.md:*)", "Bash(rm .claude/maher-loop.local.md)", "Read(.claude/maher-loop.local.md)", "Read(.claude/maher-loop-history.local.md)"]
+allowed-tools: ["Bash(ls .claude/maher-loop-*.local.md:*)", "Bash(rm .claude/maher-loop-*:*)", "Bash(test -f:*)", "Bash(grep:*)", "Bash(cat:*)", "Read"]
 hide-from-slash-command-tool: "true"
 ---
 
 # Cancel Maher Loop
 
-To cancel the Maher loop:
+To cancel Maher loop(s):
 
-1. Check if `.claude/maher-loop.local.md` exists using Bash: `test -f .claude/maher-loop.local.md && echo "EXISTS" || echo "NOT_FOUND"`
+1. List active state files using Bash: `ls .claude/maher-loop-*.local.md 2>/dev/null | grep -v history | grep -v original`
 
-2. **If NOT_FOUND**: Say "No active Maher loop found."
+2. **If no files found**: Say "No active Maher loops found."
 
-3. **If EXISTS**:
-   - Read `.claude/maher-loop.local.md` to get the current iteration number from the `iteration:` field
-   - Read `.claude/maher-loop-history.local.md` to see how many refinements occurred
-   - Remove the state file using Bash: `rm .claude/maher-loop.local.md`
-   - Report: "Cancelled Maher loop at iteration N (M prompt refinements)" where N is the iteration and M is the number of refinement entries in the history file
-   - Note: The history file and original prompt file are preserved for reference
+3. **If one or more files found**:
+   - For each state file, read the frontmatter to get the `iteration:`, `loop_id:`, `session_id:`, and `started_at:` fields
+   - Report each loop: "Loop {loop_id} — iteration N, started {time}, session {session_id}"
+   - Remove ALL state files using Bash: `rm .claude/maher-loop-*.local.md` (this removes state + history + original files for all loops)
+   - If the user only wants to cancel a specific loop, remove just that loop's files: `rm .claude/maher-loop-{ID}.local.md .claude/maher-loop-{ID}-history.local.md .claude/maher-loop-{ID}-original.local.md`
+   - Report: "Cancelled N Maher loop(s)"
