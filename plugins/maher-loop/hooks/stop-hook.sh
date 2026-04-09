@@ -30,10 +30,23 @@ ITERATION=$(echo "$FRONTMATTER" | grep '^iteration:' | sed 's/iteration: *//')
 MAX_ITERATIONS=$(echo "$FRONTMATTER" | grep '^max_iterations:' | sed 's/max_iterations: *//')
 COMPLETION_PROMISE=$(echo "$FRONTMATTER" | grep '^completion_promise:' | sed 's/completion_promise: *//' | sed 's/^"\(.*\)"$/\1/')
 
-# Session isolation: only the session that started the loop can trigger it
-STATE_SESSION=$(echo "$FRONTMATTER" | grep '^session_id:' | sed 's/session_id: *//' || true)
+# Session isolation: only the session that started the loop can trigger it.
+# The setup script can't capture session_id (env var not available), so we
+# use lazy claiming: first hook invocation writes the session_id to the state
+# file, and all subsequent invocations from other sessions are rejected.
+STATE_SESSION=$(echo "$FRONTMATTER" | grep '^session_id:' | sed 's/session_id: *//' | tr -d '[:space:]' || true)
 HOOK_SESSION=$(echo "$HOOK_INPUT" | jq -r '.session_id // ""')
-if [[ -n "$STATE_SESSION" ]] && [[ "$STATE_SESSION" != "$HOOK_SESSION" ]]; then
+
+if [[ -z "$STATE_SESSION" ]] && [[ -n "$HOOK_SESSION" ]]; then
+  # First invocation: claim this session as the loop owner
+  TEMP_FILE="${STATE_FILE}.tmp.$$"
+  sed "s/^session_id: .*/session_id: $HOOK_SESSION/" "$STATE_FILE" > "$TEMP_FILE"
+  mv "$TEMP_FILE" "$STATE_FILE"
+  STATE_SESSION="$HOOK_SESSION"
+  # Re-read frontmatter after modification
+  FRONTMATTER=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$STATE_FILE")
+elif [[ -n "$STATE_SESSION" ]] && [[ "$STATE_SESSION" != "$HOOK_SESSION" ]]; then
+  # Different session: don't interfere
   exit 0
 fi
 
