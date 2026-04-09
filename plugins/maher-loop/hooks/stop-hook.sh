@@ -98,6 +98,11 @@ if [[ ! -f "$TRANSCRIPT_PATH" ]]; then
   exit 0
 fi
 
+# Brief delay to ensure the current turn's assistant output is flushed
+# to the transcript file. Without this, the hook reads the previous
+# turn's output (one iteration behind), causing stale refine extraction.
+sleep 0.5
+
 # Extract assistant text from the CURRENT TURN only.
 LAST_USER_LINENO=0
 while IFS=: read -r num rest; do
