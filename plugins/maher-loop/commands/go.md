@@ -100,6 +100,8 @@ When using rate-limited external APIs (Consensus, web search, etc.), call them *
 
 ## Reference Files
 
-- `.claude/maher-loop.local.md` - Active state file with current prompt
-- `.claude/maher-loop-original.local.md` - Original prompt (never changes)
-- `.claude/maher-loop-history.local.md` - Log of all prompt refinements
+Each loop gets a unique ID. Files are named with that ID:
+
+- `.claude/maher-loop-{ID}.local.md` - Active state file with current prompt
+- `.claude/maher-loop-{ID}-original.local.md` - Original prompt (never changes)
+- `.claude/maher-loop-{ID}-history.local.md` - Log of all prompt refinements
