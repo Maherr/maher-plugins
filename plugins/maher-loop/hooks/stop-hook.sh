@@ -101,7 +101,8 @@ fi
 # Brief delay to ensure the current turn's assistant output is flushed
 # to the transcript file. Without this, the hook reads the previous
 # turn's output (one iteration behind), causing stale refine extraction.
-sleep 0.5
+# Keep this short (0.1s) to avoid terminal rendering glitches in no-flicker mode.
+sleep 0.1
 
 # Extract assistant text from the CURRENT TURN only.
 LAST_USER_LINENO=0
