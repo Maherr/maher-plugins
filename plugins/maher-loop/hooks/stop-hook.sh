@@ -197,7 +197,7 @@ if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
     else
       SUMMARY="Maher loop [$LOOP_ID]: Complete — $ITERATION iterations"
     fi
-    echo "$SUMMARY" > /dev/tty 2>/dev/null || echo "$SUMMARY" >&2
+    echo "$SUMMARY" >&2
     rm "$STATE_FILE"
     exit 0
   fi
@@ -215,7 +215,7 @@ if [[ "$MAX_ITER_REACHED" = true ]]; then
   else
     SUMMARY="Maher loop [$LOOP_ID]: Max iterations ($MAX_ITERATIONS) reached."
   fi
-  echo "$SUMMARY" > /dev/tty 2>/dev/null || echo "$SUMMARY" >&2
+  echo "$SUMMARY" >&2
   rm "$STATE_FILE"
   exit 0
 fi
