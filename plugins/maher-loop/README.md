@@ -15,7 +15,7 @@ Iterative AI loop with **prompt refinement**, **built-in sweep protocol**, and *
 | Review before completion | No | Yes (two consecutive clean passes required) |
 | Concurrent loops | No | Yes (ID-based state files, session isolation) |
 | Shell-safe prompts | No (parentheses break it) | Yes (heredoc input, parens/quotes safe) |
-| Interrupt handling | Hijacks every subsequent turn | Pauses dormant, resumes on demand |
+| Completion model | Runs until explicit stop | Runs autonomously until `<promise>DONE</promise>` |
 
 ## How It Works
 
@@ -39,16 +39,12 @@ flowchart TD
     M -->|Yes| N["Output &lt;promise&gt;DONE&lt;/promise&gt;"]
     N --> O["Loop exits ✓"]
 
-    F -.->|User interrupts| P["Loop pauses dormant:<br/>Claude answers without tags<br/>State file preserved<br/>Chat freely"]
-    P -.->|User says continue| F
-
     style A fill:#4a9eff,color:#fff
     style O fill:#22c55e,color:#fff
     style G fill:#f59e0b,color:#fff
     style K fill:#f59e0b,color:#fff
     style N fill:#22c55e,color:#fff
     style J fill:#ef4444,color:#fff
-    style P fill:#8b5cf6,color:#fff
 ```
 
 ## Installation
@@ -140,33 +136,17 @@ Prompts are passed via heredoc, so parentheses, quotes, and other shell metachar
 /maher-loop:go Create 3 files: 1) config.json, 2) dashboard.md that doesn't repeat data, 3) report.md
 ```
 
-## Interrupt-Safe Pausing
+## Full Autonomy
 
-You can ask off-topic questions mid-loop without cancelling it or hijacking the conversation. When Claude's response contains no `<refine>` or `<promise>` tag, the stop hook exits cleanly instead of forcing another iteration. The loop stays active but dormant — its state file is preserved.
+The loop runs autonomously until Claude outputs `<promise>DONE</promise>`. There is no pause-on-interrupt mechanism — if Claude outputs a response without a `<refine>` or `<promise>` tag, the stop hook re-feeds the current prompt to keep the loop moving forward.
 
-**Example flow:**
+**Rationale:** the loop is designed for tasks you want to hand off and let complete without supervision. Building a pause mechanism into the stop hook created a tradeoff between "autonomy" and "conversation safety" — we chose autonomy. If you need to interrupt a loop, use the explicit escape hatch:
 
-```
-You: /maher-loop:go Research competing cache libraries and recommend one --max-iterations 10
-Claude: [researches, outputs <refine> SWEEP MODE]
-
-You: Wait, what's the difference between LRU and LFU eviction?
-Claude: [answers normally, no <refine> tag]
-
-You: Interesting. What about ARC?
-Claude: [answers normally, no <refine> tag — still no hook firing]
-
-You: OK, continue the loop.
-Claude: [outputs <refine> CLEAN SWEEP — loop resumes from where it paused]
-Claude: [verification pass]
-Claude: [<promise>DONE</promise>]
+```bash
+/maher-loop:cancel-maher
 ```
 
-**How it works:** The stop hook checks if Claude's last output contains a `<refine>` or `<promise>` tag. If neither is present, the hook exits with code 0 (allowing the turn to end normally) without blocking. The state file stays intact, so the loop resumes the moment Claude outputs a new refine or promise.
-
-**Why it matters:** Previously (v2.0.x and earlier), the "Ralph fallback" would re-feed the current prompt whenever no refine was found, which hijacked every user interrupt and made off-topic questions trigger a loop re-run. v2.1.0 removes the fallback in favor of clean pausing.
-
-**To fully cancel the loop instead of pausing**, use `/maher-loop:cancel-maher`.
+This cleanly cancels the loop and preserves the history + original prompt files for reference.
 
 ## Commands
 

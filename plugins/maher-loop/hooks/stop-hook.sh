@@ -236,39 +236,35 @@ if echo "$LAST_OUTPUT" | grep -q '<refine>'; then
   ' 2>/dev/null || echo "")
 fi
 
+CURRENT_PROMPT=$(awk '/^---$/{i++; next} i>=2' "$STATE_FILE")
+
 # ============================================================
-# No refine AND no promise — user likely interrupted the loop
+# No refine — use Ralph fallback (re-feed current prompt)
 # ============================================================
-# If Claude's output contains neither a <refine> nor a <promise>,
-# Claude was probably answering an off-topic user question, not
-# continuing the loop. Exit cleanly without forcing another
-# iteration. The state file is preserved so the loop can resume
-# if Claude later outputs a <refine> or <promise>.
-#
-# This prevents "conversation poisoning" where the loop hijacks
-# every subsequent turn even when the user is asking unrelated
-# questions.
+# If Claude outputs no <refine>, re-feed the current prompt. This
+# keeps the loop running autonomously to completion. The escape
+# hatch is /maher-loop:cancel-maher — not "ask an off-topic question."
 if [[ -z "$REFINED_PROMPT" ]]; then
-  # Note: we already checked for <promise> earlier and exited if found,
-  # so reaching this point means there's no <promise> either.
-  # Exit cleanly — loop stays active but dormant this turn.
-  exit 0
+  PROMPT_TEXT="$CURRENT_PROMPT"
+  PROMPT_WAS_REFINED=false
+else
+  PROMPT_TEXT="$REFINED_PROMPT"
+  PROMPT_WAS_REFINED=true
 fi
 
-PROMPT_TEXT="$REFINED_PROMPT"
-PROMPT_WAS_REFINED=true
+# Log refinement to history file (only if refined)
+if [[ "$PROMPT_WAS_REFINED" = true ]]; then
+  if [[ ! -f "$HISTORY_FILE" ]]; then
+    printf '# Maher Loop Refinement History\n\n---\n' > "$HISTORY_FILE"
+  fi
 
-# Log refinement to history file
-if [[ ! -f "$HISTORY_FILE" ]]; then
-  printf '# Maher Loop Refinement History\n\n---\n' > "$HISTORY_FILE"
+  {
+    printf '\n## Iteration %d -> %d\n' "$ITERATION" "$((ITERATION + 1))"
+    printf '**Refined at:** %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    printf '%s\n' "$REFINED_PROMPT"
+    printf '\n---\n'
+  } >> "$HISTORY_FILE"
 fi
-
-{
-  printf '\n## Iteration %d -> %d\n' "$ITERATION" "$((ITERATION + 1))"
-  printf '**Refined at:** %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  printf '%s\n' "$REFINED_PROMPT"
-  printf '\n---\n'
-} >> "$HISTORY_FILE"
 
 if [[ -z "$PROMPT_TEXT" ]]; then
   echo "Maher loop [$LOOP_ID]: No prompt text found" >&2
@@ -277,29 +273,40 @@ if [[ -z "$PROMPT_TEXT" ]]; then
 fi
 
 # ============================================================
-# Update state file: replace body with refined prompt + bump iteration
+# Update state file: bump iteration, replace body only if refined
 # ============================================================
 NEXT_ITERATION=$((ITERATION + 1))
 
-BODY_LINE=$(awk '/^---$/{count++; if(count==2){print NR; exit}}' "$STATE_FILE")
+if [[ "$PROMPT_WAS_REFINED" = true ]]; then
+  BODY_LINE=$(awk '/^---$/{count++; if(count==2){print NR; exit}}' "$STATE_FILE")
 
-if [[ -z "$BODY_LINE" ]]; then
-  echo "Maher loop [$LOOP_ID]: Malformed state file (no closing ---)" >&2
-  rm "$STATE_FILE"
-  exit 0
+  if [[ -z "$BODY_LINE" ]]; then
+    echo "Maher loop [$LOOP_ID]: Malformed state file (no closing ---)" >&2
+    rm "$STATE_FILE"
+    exit 0
+  fi
+
+  TEMP_FILE="${STATE_FILE}.tmp.$$"
+  head -n "$BODY_LINE" "$STATE_FILE" \
+    | sed "s/^iteration: .*/iteration: $NEXT_ITERATION/" \
+    > "$TEMP_FILE"
+  printf '\n%s\n' "$REFINED_PROMPT" >> "$TEMP_FILE"
+  mv "$TEMP_FILE" "$STATE_FILE"
+else
+  # No refine — just bump iteration, keep existing prompt body
+  TEMP_FILE="${STATE_FILE}.tmp.$$"
+  sed "s/^iteration: .*/iteration: $NEXT_ITERATION/" "$STATE_FILE" > "$TEMP_FILE"
+  mv "$TEMP_FILE" "$STATE_FILE"
 fi
 
-TEMP_FILE="${STATE_FILE}.tmp.$$"
-head -n "$BODY_LINE" "$STATE_FILE" \
-  | sed "s/^iteration: .*/iteration: $NEXT_ITERATION/" \
-  > "$TEMP_FILE"
-printf '\n%s\n' "$REFINED_PROMPT" >> "$TEMP_FILE"
-mv "$TEMP_FILE" "$STATE_FILE"
-
 # ============================================================
-# Block exit and feed refined prompt back
+# Block exit and feed prompt back
 # ============================================================
-REFINE_STATUS="prompt REFINED"
+if [[ "$PROMPT_WAS_REFINED" = true ]]; then
+  REFINE_STATUS="prompt REFINED"
+else
+  REFINE_STATUS="prompt unchanged (Ralph fallback)"
+fi
 
 if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
   SYSTEM_MSG="Maher iteration $NEXT_ITERATION [$LOOP_ID] | $REFINE_STATUS | To stop: output <promise>$COMPLETION_PROMISE</promise> ONLY when TRUE"

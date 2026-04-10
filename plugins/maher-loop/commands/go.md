@@ -75,11 +75,9 @@ If any issues: fix and return to SWEEP MODE.
 - `<promise>` is ONLY allowed after TWO consecutive clean passes (one sweep + one verification) where you verified everything and changed nothing.
 - Each `<refine>` must be self-contained. The next iteration only sees the refined prompt, not the previous one.
 - If this is iteration 1, you almost certainly need a `<refine>` block, not a promise.
-- **The loop is designed to run autonomously to completion.** Do not stop mid-loop to ask for user confirmation or check-in. Drive the work forward through sweep → verification → promise without asking permission. The user should only see the final result.
-- **Distinguish user interrupts from status checks:**
-  - **Off-topic interrupts** (new question, topic change, clarification about something unrelated to the loop task — e.g., "what's for dinner?", "explain how X works", "I need help with Y") → answer normally WITHOUT a `<refine>` or `<promise>` tag. The stop hook will exit cleanly and the loop pauses dormant. This prevents conversation poisoning.
-  - **Status checks or approval signals** (the user is checking in, confirming, or nudging you to finish — e.g., "all good?", "done yet?", "ready?", "ok to close?", "all set?", "looks good", "ship it", "we good?") → **DO NOT treat as an interrupt**. Continue the loop: output the next appropriate `<refine>` (if more sweep work is needed) or `<promise>` (if the work is verified complete). The user is signaling they want the loop to progress, not pause.
-  - **When in doubt, lean toward continuing the loop** rather than pausing. The loop is supposed to complete itself.
+- **The loop runs autonomously to completion.** Do not stop mid-loop to ask for user confirmation, check in, or pause for conversation. Drive the work forward through sweep → verification → promise without asking permission. The user should only see the final result.
+- **If the user sends a message mid-loop**, treat it as context for the loop work, not as a reason to stop. Continue driving to completion. The user can explicitly stop the loop with `/maher-loop:cancel-maher` if they need to interrupt — do not try to infer "the user wants to pause" from conversational messages.
+- **Always output a `<refine>` or `<promise>` tag** at the end of every response while the loop is active. If you don't, the loop re-feeds the current prompt to force forward progress.
 
 ### What makes a good refine block:
 
