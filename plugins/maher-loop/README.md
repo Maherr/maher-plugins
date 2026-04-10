@@ -39,10 +39,8 @@ flowchart TD
     M -->|Yes| N["Output &lt;promise&gt;DONE&lt;/promise&gt;"]
     N --> O["Loop exits ✓"]
 
-    F -.->|User interrupts| P["Claude answers\nwithout &lt;refine&gt;/&lt;promise&gt;"]
-    P -.-> Q["Hook exits cleanly\nstate file preserved"]
-    Q -.->|Normal chat| Q
-    Q -.->|User says continue| F
+    F -.->|User interrupts| P["Loop pauses dormant:<br/>Claude answers without tags<br/>State file preserved<br/>Chat freely"]
+    P -.->|User says continue| F
 
     style A fill:#4a9eff,color:#fff
     style O fill:#22c55e,color:#fff
@@ -51,7 +49,6 @@ flowchart TD
     style N fill:#22c55e,color:#fff
     style J fill:#ef4444,color:#fff
     style P fill:#8b5cf6,color:#fff
-    style Q fill:#8b5cf6,color:#fff
 ```
 
 ## Installation
