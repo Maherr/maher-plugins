@@ -75,7 +75,11 @@ If any issues: fix and return to SWEEP MODE.
 - `<promise>` is ONLY allowed after TWO consecutive clean passes (one sweep + one verification) where you verified everything and changed nothing.
 - Each `<refine>` must be self-contained. The next iteration only sees the refined prompt, not the previous one.
 - If this is iteration 1, you almost certainly need a `<refine>` block, not a promise.
-- **If the user interrupts the loop with an off-topic question or clarification request**, answer their question normally WITHOUT a `<refine>` or `<promise>` tag. The loop will pause cleanly — no refine/no promise means the stop hook exits without forcing another iteration. The loop stays active (state file preserved) and will resume next time you output a `<refine>` or `<promise>`. This prevents conversation poisoning.
+- **The loop is designed to run autonomously to completion.** Do not stop mid-loop to ask for user confirmation or check-in. Drive the work forward through sweep → verification → promise without asking permission. The user should only see the final result.
+- **Distinguish user interrupts from status checks:**
+  - **Off-topic interrupts** (new question, topic change, clarification about something unrelated to the loop task — e.g., "what's for dinner?", "explain how X works", "I need help with Y") → answer normally WITHOUT a `<refine>` or `<promise>` tag. The stop hook will exit cleanly and the loop pauses dormant. This prevents conversation poisoning.
+  - **Status checks or approval signals** (the user is checking in, confirming, or nudging you to finish — e.g., "all good?", "done yet?", "ready?", "ok to close?", "all set?", "looks good", "ship it", "we good?") → **DO NOT treat as an interrupt**. Continue the loop: output the next appropriate `<refine>` (if more sweep work is needed) or `<promise>` (if the work is verified complete). The user is signaling they want the loop to progress, not pause.
+  - **When in doubt, lean toward continuing the loop** rather than pausing. The loop is supposed to complete itself.
 
 ### What makes a good refine block:
 
