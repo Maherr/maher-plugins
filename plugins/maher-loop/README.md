@@ -13,6 +13,8 @@ Iterative AI loop with **prompt refinement**, **built-in sweep protocol**, and *
 | File tracking | No | Yes (`Files touched:` in every refine) |
 | Quality sweeps | No (must launch separately) | Built-in (sweep + verification) |
 | Review before completion | No | Yes (two consecutive clean passes required) |
+| Concurrent loops | No | Yes (ID-based state files, session isolation) |
+| Shell-safe prompts | No (parentheses break it) | Yes (heredoc input, parens/quotes safe) |
 
 ## How It Works
 
@@ -58,7 +60,7 @@ flowchart TD
 ```
 
 Claude will:
-1. Work on the task
+1. Work on the task, creating tasks for complex work (3+ steps)
 2. Output a `<refine>` block with an improved prompt (including `Files touched:`)
 3. Stop hook extracts the refinement
 4. Next iteration receives the sharpened prompt
@@ -84,7 +86,7 @@ Files touched: [list of files modified this iteration]
 </refine>
 ```
 
-The stop hook in `hooks/stop-hook.sh` extracts this block and updates the state file. If no `<refine>` block is output, the same prompt repeats (Ralph behavior).
+The stop hook extracts this block and updates the state file. If no `<refine>` block is output, the same prompt repeats (Ralph behavior).
 
 ## Built-in Sweep Protocol
 
@@ -103,43 +105,71 @@ If issues are found at any phase, Claude fixes them and returns to Sweep Mode. T
 
 **Why this matters:** In practice, review iterations that only check what you think to look for miss issues that full file re-reads catch (stale data, duplicate sections, inconsistent numbers between files). The sweep protocol was added after observing that a separate Ralph Loop sweep consistently found 5-10 additional issues after Maher Loop's original review mode declared "done."
 
-## Rate-Limited APIs
+## Smart Guidance
 
-When using rate-limited external APIs (Consensus, web search, etc.), the loop instructions advise calling them **sequentially, not in parallel**. Parallel calls frequently hit rate limits and waste iterations on retries.
+The loop instructions include conditional guidance that triggers when appropriate:
+
+| Guidance | When it triggers |
+|----------|-----------------|
+| **Task tracking** | 3+ distinct steps — uses TaskCreate/TaskUpdate for progress visibility |
+| **Parallel agents** | Complex research, debugging, or when stuck — spawns Agent tool for multi-angle investigation |
+| **Foreground agents only** | Always — background agents may not complete before the stop hook fires |
+| **Sequential API calls** | Rate-limited external APIs (Consensus, web search) — avoids wasted retries |
+
+## Concurrent Loops
+
+Multiple loops can run simultaneously in different terminals. Each loop gets a unique 8-character hex ID:
+
+```
+Terminal A: /maher-loop:go Build the API          → Loop ID: a3f8b2c1
+Terminal B: /maher-loop:go Write the docs          → Loop ID: 7e2d4f09
+```
+
+Session isolation ensures each terminal's stop hook only processes its own loop. Isolation uses lazy claiming — the first hook invocation writes the session ID to the state file.
+
+## Shell-Safe Prompts
+
+Prompts are passed via heredoc, so parentheses, quotes, and other shell metacharacters work without escaping:
+
+```bash
+/maher-loop:go Create 3 files: 1) config.json, 2) dashboard.md that doesn't repeat data, 3) report.md
+```
 
 ## Commands
 
 - `/maher-loop:go <prompt> [--max-iterations N] [--completion-promise TEXT]` - Start loop
-- `/maher-loop:cancel-maher` - Cancel active loop
+- `/maher-loop:cancel-maher` - Cancel active loop(s)
 - `/maher-loop:help` - Show help
 
 ## Files
 
-During a loop, these files are created in `.claude/`:
+Each loop creates ID-based files in `.claude/`:
 
 | File | Purpose |
 |------|---------|
-| `maher-loop.local.md` | Active state + current prompt (updated each iteration) |
-| `maher-loop-original.local.md` | Original prompt (never modified) |
-| `maher-loop-history.local.md` | Log of every prompt refinement |
+| `maher-loop-{ID}.local.md` | Active state + current prompt (updated each iteration) |
+| `maher-loop-{ID}-original.local.md` | Original prompt (never modified) |
+| `maher-loop-{ID}-history.local.md` | Log of every prompt refinement |
 
 ## Architecture
 
-Same Stop hook mechanism as Ralph:
-
 ```
-Claude works -> tries to exit -> stop hook fires -> checks for:
-  1. <promise> tag -> stop loop
-  2. <refine> tag -> update prompt
-  3. Max iterations -> stop loop
-  4. Otherwise -> block exit, feed prompt back
+Claude works -> tries to exit -> stop hook fires (0.1s flush delay) -> checks for:
+  1. Session match (lazy claiming / reject other sessions)
+  2. <promise> tag -> stop loop (preferred over max-iterations)
+  3. Max iterations -> stop loop (fallback)
+  4. <refine> tag -> update prompt, log to history
+  5. Otherwise -> block exit, feed current prompt back
 ```
 
 ## Safety
 
 - Default `--max-iterations 99` as a safety net
 - Default `--completion-promise DONE` requires exact match in `<promise>` tags
-- Session-isolated: only the originating session triggers the hook
+- Session-isolated via lazy claiming — other terminals are never hijacked
+- Concurrent loops supported — each gets its own ID-based state files
+- Shell-safe input via heredoc — no metacharacter injection
 - History file preserves the full refinement trajectory for debugging
-- Existing loop check prevents accidental overwrites
 - Race condition retry limit (5 retries) prevents infinite retry loops
+- 0.1s transcript flush delay prevents stale refine extraction
+- Compatible with Claude Code's no-flicker mode
