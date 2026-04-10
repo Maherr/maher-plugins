@@ -69,13 +69,13 @@ If any issues: fix and return to SWEEP MODE.
 
 ### Rules:
 
-- You MUST output either a `<refine>` block OR a `<promise>` tag at the very end of your response. EVERY iteration. No exceptions.
-- The `<refine>` and `<promise>` tags must appear in your TEXT output, not inside tool calls or code blocks.
+- You MUST output either a `<refine>` block OR a `<promise>` tag at the very end of your response when doing loop work. The `<refine>` and `<promise>` tags must appear in your TEXT output, not inside tool calls or code blocks.
 - Do NOT just say "done" or "complete" in plain text. The stop hook ONLY reads XML tags. Plain text like "All done!" does NOTHING.
 - **NEVER output `<promise>` in an iteration where you created, wrote, or fixed anything.** Always refine into a sweep iteration first.
 - `<promise>` is ONLY allowed after TWO consecutive clean passes (one sweep + one verification) where you verified everything and changed nothing.
 - Each `<refine>` must be self-contained. The next iteration only sees the refined prompt, not the previous one.
 - If this is iteration 1, you almost certainly need a `<refine>` block, not a promise.
+- **If the user interrupts the loop with an off-topic question or clarification request**, answer their question normally WITHOUT a `<refine>` or `<promise>` tag. The loop will pause cleanly — no refine/no promise means the stop hook exits without forcing another iteration. The loop stays active (state file preserved) and will resume next time you output a `<refine>` or `<promise>`. This prevents conversation poisoning.
 
 ### What makes a good refine block:
 

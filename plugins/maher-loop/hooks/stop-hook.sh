@@ -236,68 +236,70 @@ if echo "$LAST_OUTPUT" | grep -q '<refine>'; then
   ' 2>/dev/null || echo "")
 fi
 
-CURRENT_PROMPT=$(awk '/^---$/{i++; next} i>=2' "$STATE_FILE")
-
-if [[ -n "$REFINED_PROMPT" ]]; then
-  PROMPT_TEXT="$REFINED_PROMPT"
-  PROMPT_WAS_REFINED=true
-
-  # Log refinement to history file
-  if [[ ! -f "$HISTORY_FILE" ]]; then
-    printf '# Maher Loop Refinement History\n\n---\n' > "$HISTORY_FILE"
-  fi
-
-  {
-    printf '\n## Iteration %d -> %d\n' "$ITERATION" "$((ITERATION + 1))"
-    printf '**Refined at:** %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-    printf '%s\n' "$REFINED_PROMPT"
-    printf '\n---\n'
-  } >> "$HISTORY_FILE"
-
-else
-  PROMPT_TEXT="$CURRENT_PROMPT"
+# ============================================================
+# No refine AND no promise — user likely interrupted the loop
+# ============================================================
+# If Claude's output contains neither a <refine> nor a <promise>,
+# Claude was probably answering an off-topic user question, not
+# continuing the loop. Exit cleanly without forcing another
+# iteration. The state file is preserved so the loop can resume
+# if Claude later outputs a <refine> or <promise>.
+#
+# This prevents "conversation poisoning" where the loop hijacks
+# every subsequent turn even when the user is asking unrelated
+# questions.
+if [[ -z "$REFINED_PROMPT" ]]; then
+  # Note: we already checked for <promise> earlier and exited if found,
+  # so reaching this point means there's no <promise> either.
+  # Exit cleanly — loop stays active but dormant this turn.
+  exit 0
 fi
 
+PROMPT_TEXT="$REFINED_PROMPT"
+PROMPT_WAS_REFINED=true
+
+# Log refinement to history file
+if [[ ! -f "$HISTORY_FILE" ]]; then
+  printf '# Maher Loop Refinement History\n\n---\n' > "$HISTORY_FILE"
+fi
+
+{
+  printf '\n## Iteration %d -> %d\n' "$ITERATION" "$((ITERATION + 1))"
+  printf '**Refined at:** %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  printf '%s\n' "$REFINED_PROMPT"
+  printf '\n---\n'
+} >> "$HISTORY_FILE"
+
 if [[ -z "$PROMPT_TEXT" ]]; then
-  echo "Maher loop [$LOOP_ID]: No prompt text found in state file" >&2
+  echo "Maher loop [$LOOP_ID]: No prompt text found" >&2
   rm "$STATE_FILE"
   exit 0
 fi
 
 # ============================================================
-# Update state file
+# Update state file: replace body with refined prompt + bump iteration
 # ============================================================
 NEXT_ITERATION=$((ITERATION + 1))
 
-if [[ "$PROMPT_WAS_REFINED" = true ]]; then
-  BODY_LINE=$(awk '/^---$/{count++; if(count==2){print NR; exit}}' "$STATE_FILE")
+BODY_LINE=$(awk '/^---$/{count++; if(count==2){print NR; exit}}' "$STATE_FILE")
 
-  if [[ -z "$BODY_LINE" ]]; then
-    echo "Maher loop [$LOOP_ID]: Malformed state file (no closing ---)" >&2
-    rm "$STATE_FILE"
-    exit 0
-  fi
-
-  TEMP_FILE="${STATE_FILE}.tmp.$$"
-  head -n "$BODY_LINE" "$STATE_FILE" \
-    | sed "s/^iteration: .*/iteration: $NEXT_ITERATION/" \
-    > "$TEMP_FILE"
-  printf '\n%s\n' "$REFINED_PROMPT" >> "$TEMP_FILE"
-  mv "$TEMP_FILE" "$STATE_FILE"
-else
-  TEMP_FILE="${STATE_FILE}.tmp.$$"
-  sed "s/^iteration: .*/iteration: $NEXT_ITERATION/" "$STATE_FILE" > "$TEMP_FILE"
-  mv "$TEMP_FILE" "$STATE_FILE"
+if [[ -z "$BODY_LINE" ]]; then
+  echo "Maher loop [$LOOP_ID]: Malformed state file (no closing ---)" >&2
+  rm "$STATE_FILE"
+  exit 0
 fi
 
+TEMP_FILE="${STATE_FILE}.tmp.$$"
+head -n "$BODY_LINE" "$STATE_FILE" \
+  | sed "s/^iteration: .*/iteration: $NEXT_ITERATION/" \
+  > "$TEMP_FILE"
+printf '\n%s\n' "$REFINED_PROMPT" >> "$TEMP_FILE"
+mv "$TEMP_FILE" "$STATE_FILE"
+
 # ============================================================
-# Block exit and feed prompt back
+# Block exit and feed refined prompt back
 # ============================================================
-if [[ "$PROMPT_WAS_REFINED" = true ]]; then
-  REFINE_STATUS="prompt REFINED"
-else
-  REFINE_STATUS="prompt unchanged"
-fi
+REFINE_STATUS="prompt REFINED"
 
 if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
   SYSTEM_MSG="Maher iteration $NEXT_ITERATION [$LOOP_ID] | $REFINE_STATUS | To stop: output <promise>$COMPLETION_PROMISE</promise> ONLY when TRUE"
