@@ -70,7 +70,7 @@ If any issues: fix and return to SWEEP MODE.
 ### Rules:
 
 - You MUST output either a `<refine>` block OR a `<promise>` tag at the very end of your response when doing loop work. The `<refine>` and `<promise>` tags must appear in your TEXT output, not inside tool calls or code blocks.
-- Do NOT just say "done" or "complete" in plain text. The stop hook ONLY reads XML tags. Plain text like "All done!" does NOTHING.
+- **⚠️ CRITICAL: The stop hook ONLY matches LITERAL XML TAGS with angle brackets.** Writing `DONE` or `**DONE**` or `## DONE` or any other plain-text/markdown variant DOES NOTHING. You must write the exact string `<promise>DONE</promise>` (or whatever the configured completion phrase is) with the angle brackets visible in your output. If the loop has looped 2+ iterations with the same refined prompt and you keep writing "DONE" and nothing happens, CHECK your output — you are almost certainly missing the `<promise></promise>` angle brackets. Fix by typing the literal characters `<`, `p`, `r`, `o`, `m`, `i`, `s`, `e`, `>`, `D`, `O`, `N`, `E`, `<`, `/`, `p`, `r`, `o`, `m`, `i`, `s`, `e`, `>`.
 - **NEVER output `<promise>` in an iteration where you created, wrote, or fixed anything.** Always refine into a sweep iteration first.
 - `<promise>` is ONLY allowed after TWO consecutive clean passes (one sweep + one verification) where you verified everything and changed nothing.
 - Each `<refine>` must be self-contained. The next iteration only sees the refined prompt, not the previous one.

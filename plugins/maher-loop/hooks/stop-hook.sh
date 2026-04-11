@@ -308,8 +308,20 @@ else
   REFINE_STATUS="prompt unchanged (Ralph fallback)"
 fi
 
+# Detect "Claude tried to complete but forgot XML tags" failure mode.
+# If output contains the completion phrase as plain text (not wrapped in
+# <promise></promise>) and we already checked for <promise> earlier and
+# didn't find it, Claude almost certainly forgot the angle brackets.
+NAKED_COMPLETION_WARNING=""
 if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
-  SYSTEM_MSG="Maher iteration $NEXT_ITERATION [$LOOP_ID] | $REFINE_STATUS | To stop: output <promise>$COMPLETION_PROMISE</promise> ONLY when TRUE"
+  # Search for the completion phrase in the output, case-insensitive
+  if echo "$LAST_OUTPUT" | grep -qi -- "$COMPLETION_PROMISE"; then
+    NAKED_COMPLETION_WARNING=" ⚠️  You wrote '$COMPLETION_PROMISE' as plain text — the hook ONLY matches <promise>$COMPLETION_PROMISE</promise> with literal angle brackets. Output it again WITH the tags."
+  fi
+fi
+
+if [[ "$COMPLETION_PROMISE" != "null" ]] && [[ -n "$COMPLETION_PROMISE" ]]; then
+  SYSTEM_MSG="Maher iteration $NEXT_ITERATION [$LOOP_ID] | $REFINE_STATUS | To stop: output <promise>$COMPLETION_PROMISE</promise> ONLY when TRUE${NAKED_COMPLETION_WARNING}"
 else
   SYSTEM_MSG="Maher iteration $NEXT_ITERATION [$LOOP_ID] | $REFINE_STATUS | No completion promise set"
 fi
